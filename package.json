@@ -1,6 +1,6 @@
 {
   "name": "@paylio/embed-js",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Paylio Embed SDK for JavaScript/TypeScript — embed pricing grids with a single function call",
   "type": "module",
   "main": "./dist/index.cjs",
