@@ -6,9 +6,7 @@ const DEFAULT_CONTAINER = "#paylio-plans";
 /**
  * Resolve a container option to an HTMLElement.
  */
-function resolveContainer(
-  container: string | HTMLElement | undefined
-): HTMLElement {
+function resolveContainer(container: string | HTMLElement | undefined): HTMLElement {
   if (container instanceof HTMLElement) {
     return container;
   }
@@ -16,9 +14,7 @@ function resolveContainer(
   const selector = container ?? DEFAULT_CONTAINER;
   const el = document.querySelector(selector);
   if (!el) {
-    throw new Error(
-      `[Paylio] Container element not found: ${selector}`
-    );
+    throw new Error(`[Paylio] Container element not found: ${selector}`);
   }
   return el as HTMLElement;
 }
@@ -32,9 +28,7 @@ function buildIframeUrl(options: PaylioEmbedOptions): string {
     frequency: "monthly",
   });
 
-  if (options.userId) {
-    params.set("user_id", options.userId);
-  }
+  params.set("user_id", options.userId);
 
   if (options.country) {
     params.set("country", options.country);
@@ -46,20 +40,14 @@ function buildIframeUrl(options: PaylioEmbedOptions): string {
 /**
  * Create and mount the pricing grid iframe.
  */
-export function createPaylioEmbed(
-  options: PaylioEmbedOptions
-): PaylioEmbedInstance {
+export function createPaylioEmbed(options: PaylioEmbedOptions): PaylioEmbedInstance {
   // ── Validation ──────────────────────────────────────────────────
   if (!options.publishableKey || !options.publishableKey.trim()) {
-    throw new Error(
-      "[Paylio] publishableKey is required. Pass your publishable key (pk_...)."
-    );
+    throw new Error("[Paylio] publishableKey is required. Pass your publishable key (pk_...).");
   }
 
   if (!options.userId || !options.userId.trim()) {
-    throw new Error(
-      "[Paylio] userId is required. Pass your external user ID."
-    );
+    throw new Error("[Paylio] userId is required. Pass your external user ID.");
   }
 
   // ── Resolve container ───────────────────────────────────────────

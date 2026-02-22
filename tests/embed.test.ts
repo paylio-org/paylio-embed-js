@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createPaylioEmbed } from "../src/index";
-import type { PaylioEmbedOptions, PaylioEmbedInstance } from "../src/types";
 
 describe("createPaylioEmbed", () => {
   beforeEach(() => {
@@ -14,28 +13,26 @@ describe("createPaylioEmbed", () => {
   // ── Validation ──────────────────────────────────────────────────
 
   it("throws if publishableKey is empty", () => {
-    expect(() =>
-      createPaylioEmbed({ publishableKey: "", userId: "u1" })
-    ).toThrow(/publishableKey/i);
+    expect(() => createPaylioEmbed({ publishableKey: "", userId: "u1" })).toThrow(
+      /publishableKey/i,
+    );
   });
 
   it("throws if publishableKey is whitespace-only", () => {
-    expect(() =>
-      createPaylioEmbed({ publishableKey: "   ", userId: "u1" })
-    ).toThrow(/publishableKey/i);
+    expect(() => createPaylioEmbed({ publishableKey: "   ", userId: "u1" })).toThrow(
+      /publishableKey/i,
+    );
   });
 
   it("throws if userId is empty", () => {
-    expect(() =>
-      createPaylioEmbed({ publishableKey: "pk_test", userId: "" })
-    ).toThrow(/userId/i);
+    expect(() => createPaylioEmbed({ publishableKey: "pk_test", userId: "" })).toThrow(/userId/i);
   });
 
   it("throws if container element is not found", () => {
     document.body.innerHTML = ""; // remove default container
-    expect(() =>
-      createPaylioEmbed({ publishableKey: "pk_test", userId: "u1" })
-    ).toThrow(/container/i);
+    expect(() => createPaylioEmbed({ publishableKey: "pk_test", userId: "u1" })).toThrow(
+      /container/i,
+    );
   });
 
   // ── Iframe creation ─────────────────────────────────────────────
@@ -136,10 +133,7 @@ describe("createPaylioEmbed", () => {
       userId: "u1",
     });
     instance.destroy();
-    expect(removeSpy).toHaveBeenCalledWith(
-      "message",
-      expect.any(Function)
-    );
+    expect(removeSpy).toHaveBeenCalledWith("message", expect.any(Function));
     removeSpy.mockRestore();
   });
 
@@ -172,6 +166,64 @@ describe("postMessage handling", () => {
     await new Promise((r) => setTimeout(r, 50));
 
     expect(iframe.style.height).toBe("800px");
+  });
+
+  it("handles paylio:ready message without error", async () => {
+    createPaylioEmbed({ publishableKey: "pk_test", userId: "u1" });
+
+    window.postMessage({ type: "paylio:ready" }, "*");
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    // Should not throw; iframe remains in DOM
+    expect(document.querySelector("iframe")).toBeTruthy();
+  });
+
+  it("handles paylio:grid-loaded message without error", async () => {
+    createPaylioEmbed({ publishableKey: "pk_test", userId: "u1" });
+
+    window.postMessage({ type: "paylio:grid-loaded" }, "*");
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(document.querySelector("iframe")).toBeTruthy();
+  });
+
+  it("handles paylio:checkout message without error", async () => {
+    createPaylioEmbed({ publishableKey: "pk_test", userId: "u1" });
+
+    window.postMessage({ type: "paylio:checkout" }, "*");
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(document.querySelector("iframe")).toBeTruthy();
+  });
+
+  it("ignores paylio:resize when iframe has no parent element", async () => {
+    const instance = createPaylioEmbed({ publishableKey: "pk_test", userId: "u1" });
+    const iframe = document.querySelector("iframe") as HTMLIFrameElement;
+
+    // Remove iframe from DOM manually (simulates detached state)
+    const parent = iframe.parentElement;
+    if (parent) parent.removeChild(iframe);
+
+    window.postMessage({ type: "paylio:resize", height: 900 }, "*");
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    // Height should not have changed since there's no parent
+    expect(iframe.style.height).not.toBe("900px");
+    instance.destroy();
+  });
+
+  it("handles message with no data gracefully", async () => {
+    createPaylioEmbed({ publishableKey: "pk_test", userId: "u1" });
+
+    window.postMessage(null, "*");
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(document.querySelector("iframe")).toBeTruthy();
   });
 });
 
