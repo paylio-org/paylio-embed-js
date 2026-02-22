@@ -1,0 +1,56 @@
+{
+  "name": "@paylio/embed-js",
+  "version": "0.1.0",
+  "description": "Paylio Embed SDK for JavaScript/TypeScript — embed pricing grids with a single function call",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/paylio-org/paylio-embed-js.git"
+  },
+  "keywords": [
+    "paylio",
+    "embed",
+    "pricing",
+    "subscription",
+    "checkout",
+    "sdk"
+  ],
+  "author": "Paylio",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/paylio-org/paylio-embed-js/issues"
+  },
+  "homepage": "https://github.com/paylio-org/paylio-embed-js#readme",
+  "devDependencies": {
+    "@types/node": "^25.3.0",
+    "jsdom": "^28.1.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}
