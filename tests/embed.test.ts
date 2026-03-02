@@ -24,8 +24,12 @@ describe("createPaylioEmbed", () => {
     );
   });
 
-  it("throws if userId is empty", () => {
-    expect(() => createPaylioEmbed({ publishableKey: "pk_test", userId: "" })).toThrow(/userId/i);
+  it("allows missing userId (anonymous mode)", () => {
+    expect(() => createPaylioEmbed({ publishableKey: "pk_test" } as any)).not.toThrow();
+  });
+
+  it("allows whitespace-only userId (treated as anonymous)", () => {
+    expect(() => createPaylioEmbed({ publishableKey: "pk_test", userId: "   " })).not.toThrow();
   });
 
   it("throws if container element is not found", () => {
@@ -83,6 +87,20 @@ describe("createPaylioEmbed", () => {
     const iframe = document.querySelector("iframe") as HTMLIFrameElement;
     const url = new URL(iframe.src);
     expect(url.searchParams.get("user_id")).toBe("user_42");
+  });
+
+  it("omits user_id in iframe URL when userId is missing", () => {
+    createPaylioEmbed({ publishableKey: "pk_test" } as any);
+    const iframe = document.querySelector("iframe") as HTMLIFrameElement;
+    const url = new URL(iframe.src);
+    expect(url.searchParams.has("user_id")).toBe(false);
+  });
+
+  it("omits user_id in iframe URL when userId is whitespace-only", () => {
+    createPaylioEmbed({ publishableKey: "pk_test", userId: "   " });
+    const iframe = document.querySelector("iframe") as HTMLIFrameElement;
+    const url = new URL(iframe.src);
+    expect(url.searchParams.has("user_id")).toBe(false);
   });
 
   it("includes country in iframe URL when provided", () => {
@@ -197,6 +215,19 @@ describe("postMessage handling", () => {
     await new Promise((r) => setTimeout(r, 50));
 
     expect(document.querySelector("iframe")).toBeTruthy();
+  });
+
+  it("redirects to login URL on checkout when userId is missing", async () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    createPaylioEmbed({ publishableKey: "pk_test" } as any);
+
+    window.postMessage({ type: "paylio:grid-loaded", login_redirect_url: "https://example.com/login" }, "*");
+    window.postMessage({ type: "paylio:checkout" }, "*");
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(openSpy).toHaveBeenCalledWith("https://example.com/login", "_self");
+    openSpy.mockRestore();
   });
 
   it("ignores paylio:resize when iframe has no parent element", async () => {

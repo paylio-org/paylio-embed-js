@@ -22,7 +22,7 @@ import { createPaylioEmbed } from "@paylio/embed-js";
 
 const paylio = createPaylioEmbed({
   publishableKey: "pk_live_xxx",
-  userId: "user_123",
+  userId: "user_123", // optional
 });
 
 // Later: clean up
@@ -65,9 +65,21 @@ By default, the country is auto-detected from the user's IP address.
 | Option | Type | Required | Default | Description |
 |--------|------|----------|---------|-------------|
 | `publishableKey` | `string` | Yes | — | Publishable API key (`pk_...`) |
-| `userId` | `string` | Yes | — | Your external user ID |
+| `userId` | `string` | No | Anonymous | Your external user ID |
 | `container` | `string \| HTMLElement` | No | `"#paylio-plans"` | Container for the pricing grid |
 | `country` | `string` | No | Auto-detected | ISO 3166-1 alpha-2 country code |
+
+### Anonymous mode
+
+You can omit `userId` to show plans to anonymous visitors:
+
+```typescript
+const paylio = createPaylioEmbed({
+  publishableKey: "pk_live_xxx",
+});
+```
+
+When an anonymous user clicks checkout, the SDK redirects to your project's configured login redirect URL.
 
 ## Script tag alternative
 

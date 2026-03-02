@@ -5,8 +5,8 @@ export interface PaylioEmbedOptions {
   /** Publishable API key (pk_...) */
   publishableKey: string;
 
-  /** External user ID from your system */
-  userId: string;
+  /** External user ID from your system (optional for anonymous mode) */
+  userId?: string;
 
   /**
    * Container to mount the pricing grid.

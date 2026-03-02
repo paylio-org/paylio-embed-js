@@ -22,13 +22,15 @@ function resolveContainer(container: string | HTMLElement | undefined): HTMLElem
 /**
  * Build the iframe URL for the embed pricing grid.
  */
-function buildIframeUrl(options: PaylioEmbedOptions): string {
+function buildIframeUrl(options: PaylioEmbedOptions, normalizedUserId?: string): string {
   const params = new URLSearchParams({
     api_key: options.publishableKey,
     frequency: "monthly",
   });
 
-  params.set("user_id", options.userId);
+  if (normalizedUserId) {
+    params.set("user_id", normalizedUserId);
+  }
 
   if (options.country) {
     params.set("country", options.country);
@@ -46,9 +48,7 @@ export function createPaylioEmbed(options: PaylioEmbedOptions): PaylioEmbedInsta
     throw new Error("[Paylio] publishableKey is required. Pass your publishable key (pk_...).");
   }
 
-  if (!options.userId || !options.userId.trim()) {
-    throw new Error("[Paylio] userId is required. Pass your external user ID.");
-  }
+  const normalizedUserId = options.userId?.trim();
 
   // ── Resolve container ───────────────────────────────────────────
   const containerEl = resolveContainer(options.container);
@@ -56,7 +56,7 @@ export function createPaylioEmbed(options: PaylioEmbedOptions): PaylioEmbedInsta
   // ── Create iframe ───────────────────────────────────────────────
   const iframe = document.createElement("iframe");
   iframe.id = "paylio-embed-iframe";
-  iframe.src = buildIframeUrl(options);
+  iframe.src = buildIframeUrl(options, normalizedUserId);
   iframe.style.width = "100%";
   iframe.style.border = "none";
   iframe.style.minHeight = "500px";
@@ -65,6 +65,9 @@ export function createPaylioEmbed(options: PaylioEmbedOptions): PaylioEmbedInsta
   iframe.setAttribute("frameborder", "0");
 
   containerEl.appendChild(iframe);
+
+  // Populated when iframe sends paylio:grid-loaded.
+  let loginRedirectUrl: string | null = null;
 
   // ── Message handler ─────────────────────────────────────────────
   function handleMessage(event: MessageEvent): void {
@@ -81,11 +84,19 @@ export function createPaylioEmbed(options: PaylioEmbedOptions): PaylioEmbedInsta
         break;
 
       case "paylio:grid-loaded":
-        // Store redirect URLs for future checkout handling
+        if (typeof data.login_redirect_url === "string" && data.login_redirect_url.trim()) {
+          loginRedirectUrl = data.login_redirect_url;
+        }
         break;
 
       case "paylio:checkout":
-        // Checkout is handled by the iframe + embed script flow
+        if (!normalizedUserId) {
+          if (loginRedirectUrl) {
+            window.open(loginRedirectUrl, "_self");
+          } else {
+            console.error("[Paylio] Anonymous checkout requires login_redirect_url from embed grid.");
+          }
+        }
         break;
     }
   }
