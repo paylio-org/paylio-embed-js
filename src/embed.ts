@@ -94,7 +94,9 @@ export function createPaylioEmbed(options: PaylioEmbedOptions): PaylioEmbedInsta
           if (loginRedirectUrl) {
             window.open(loginRedirectUrl, "_self");
           } else {
-            console.error("[Paylio] Anonymous checkout requires login_redirect_url from embed grid.");
+            console.error(
+              "[Paylio] Anonymous checkout requires login_redirect_url from embed grid.",
+            );
           }
         }
         break;

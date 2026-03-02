@@ -221,7 +221,10 @@ describe("postMessage handling", () => {
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     createPaylioEmbed({ publishableKey: "pk_test" } as any);
 
-    window.postMessage({ type: "paylio:grid-loaded", login_redirect_url: "https://example.com/login" }, "*");
+    window.postMessage(
+      { type: "paylio:grid-loaded", login_redirect_url: "https://example.com/login" },
+      "*",
+    );
     window.postMessage({ type: "paylio:checkout" }, "*");
 
     await new Promise((r) => setTimeout(r, 50));
