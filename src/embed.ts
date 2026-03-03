@@ -1,7 +1,8 @@
 import type { PaylioEmbedInstance, PaylioEmbedOptions } from "./types";
 
 const DEFAULT_CONTAINER = "#paylio-plans";
-const DEFAULT_RUNTIME_SCRIPT_URL = "https://api-origin.paylio.pro/embed/v1/js";
+const DEFAULT_RUNTIME_SCRIPT_URL = "https://api.paylio.pro/embed/v1/js";
+const LEGACY_RUNTIME_FALLBACK_SCRIPT_URL = "https://api-origin.paylio.pro/embed/v1/js";
 
 interface PaylioRuntimeInitOptions {
   publishableKey: string;
@@ -28,6 +29,7 @@ interface RuntimeLoadResult {
   runtime: PaylioRuntime | null;
   script: HTMLScriptElement | null;
   created: boolean;
+  resolvedScriptUrl: string;
 }
 
 const runtimeLoadPromises = new Map<string, Promise<RuntimeLoadResult>>();
@@ -72,8 +74,20 @@ function deriveApiBaseUrl(scriptUrl: string): string {
   try {
     return new URL(scriptUrl).origin;
   } catch {
-    return "https://api-origin.paylio.pro";
+    return "https://api.paylio.pro";
   }
+}
+
+function getScriptUrlCandidates(scriptUrl: string, providedScriptUrl: string | undefined): string[] {
+  const candidates = [scriptUrl];
+  const hasProvidedScriptUrl = Boolean(providedScriptUrl?.trim());
+  const shouldIncludeLegacyFallback = !hasProvidedScriptUrl || scriptUrl === DEFAULT_RUNTIME_SCRIPT_URL;
+
+  if (shouldIncludeLegacyFallback && !candidates.includes(LEGACY_RUNTIME_FALLBACK_SCRIPT_URL)) {
+    candidates.push(LEGACY_RUNTIME_FALLBACK_SCRIPT_URL);
+  }
+
+  return candidates;
 }
 
 function getRuntime(): PaylioRuntime | null {
@@ -107,7 +121,12 @@ function loadHostedRuntime(
   const existingRuntime = getRuntime();
   if (existingRuntime) {
     const existingScript = findExistingScript(scriptUrl);
-    return Promise.resolve({ runtime: existingRuntime, script: existingScript, created: false });
+    return Promise.resolve({
+      runtime: existingRuntime,
+      script: existingScript,
+      created: false,
+      resolvedScriptUrl: scriptUrl,
+    });
   }
 
   const inFlight = runtimeLoadPromises.get(scriptUrl);
@@ -117,25 +136,40 @@ function loadHostedRuntime(
 
   const loadPromise = new Promise<RuntimeLoadResult>((resolve, reject) => {
     const existingScript = findExistingScript(scriptUrl);
-    if (existingScript) {
-      if (getRuntime()) {
-        resolve({ runtime: getRuntime(), script: existingScript, created: false });
-        return;
-      }
+      if (existingScript) {
+        if (getRuntime()) {
+          resolve({
+            runtime: getRuntime(),
+            script: existingScript,
+            created: false,
+            resolvedScriptUrl: scriptUrl,
+          });
+          return;
+        }
 
-      if (isScriptLoaded(existingScript)) {
-        resolve({ runtime: null, script: existingScript, created: false });
-        return;
-      }
+        if (isScriptLoaded(existingScript)) {
+          resolve({
+            runtime: null,
+            script: existingScript,
+            created: false,
+            resolvedScriptUrl: scriptUrl,
+          });
+          return;
+        }
 
       existingScript.addEventListener(
-        "load",
-        () => {
-          markScriptLoaded(existingScript);
-          resolve({ runtime: getRuntime(), script: existingScript, created: false });
-        },
-        { once: true },
-      );
+          "load",
+          () => {
+            markScriptLoaded(existingScript);
+            resolve({
+              runtime: getRuntime(),
+              script: existingScript,
+              created: false,
+              resolvedScriptUrl: scriptUrl,
+            });
+          },
+          { once: true },
+        );
       existingScript.addEventListener(
         "error",
         () => reject(new Error(`[Paylio] Failed to load hosted runtime from ${scriptUrl}`)),
@@ -154,7 +188,12 @@ function loadHostedRuntime(
 
     script.onload = () => {
       markScriptLoaded(script);
-      resolve({ runtime: getRuntime(), script, created: true });
+      resolve({
+        runtime: getRuntime(),
+        script,
+        created: true,
+        resolvedScriptUrl: scriptUrl,
+      });
     };
     script.onerror = () => {
       reject(new Error(`[Paylio] Failed to load hosted runtime from ${scriptUrl}`));
@@ -167,6 +206,23 @@ function loadHostedRuntime(
 
   runtimeLoadPromises.set(scriptUrl, loadPromise);
   return loadPromise;
+}
+
+async function loadHostedRuntimeWithFallback(
+  scriptUrls: string[],
+  bootstrapAttributes: Record<string, string>,
+): Promise<RuntimeLoadResult> {
+  let lastError: unknown;
+
+  for (const scriptUrl of scriptUrls) {
+    try {
+      return await loadHostedRuntime(scriptUrl, bootstrapAttributes);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError ?? new Error("[Paylio] Failed to load hosted runtime");
 }
 
 function createLegacyCleanupHandle(containerEl: HTMLElement): PaylioRuntimeHandle {
@@ -193,6 +249,7 @@ export function createPaylioEmbed(options: PaylioEmbedOptions): PaylioEmbedInsta
   const normalizedUserId = options.userId?.trim() || undefined;
   const normalizedCountry = options.country?.trim() || undefined;
   const scriptUrl = normalizeScriptUrl(options.scriptUrl);
+  const scriptUrlCandidates = getScriptUrlCandidates(scriptUrl, options.scriptUrl);
 
   const bootstrapAttributes: Record<string, string> = {
     "data-paylio-sdk-runtime": "1",
@@ -209,7 +266,7 @@ export function createPaylioEmbed(options: PaylioEmbedOptions): PaylioEmbedInsta
   let destroyed = false;
   let runtimeHandle: PaylioRuntimeHandle | null = null;
 
-  void loadHostedRuntime(scriptUrl, bootstrapAttributes)
+  void loadHostedRuntimeWithFallback(scriptUrlCandidates, bootstrapAttributes)
     .then((result) => {
       if (destroyed) {
         return;
@@ -221,8 +278,8 @@ export function createPaylioEmbed(options: PaylioEmbedOptions): PaylioEmbedInsta
           userId: normalizedUserId,
           country: normalizedCountry,
           container: containerEl,
-          apiBaseUrl: deriveApiBaseUrl(scriptUrl),
-          scriptSrc: scriptUrl,
+          apiBaseUrl: deriveApiBaseUrl(result.resolvedScriptUrl),
+          scriptSrc: result.resolvedScriptUrl,
         });
         return;
       }

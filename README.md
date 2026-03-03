@@ -9,6 +9,7 @@ The Paylio Embed SDK for JavaScript/TypeScript. Embed pricing grids and checkout
 
 `@paylio/embed-js` is a thin wrapper over the hosted runtime script (`/embed/v1/js`).
 All checkout and pricing behavior lives in the hosted runtime to keep a single source of truth across script-tag and SDK integrations.
+The SDK loads the canonical runtime URL (`https://api.paylio.pro/embed/v1/js`) and automatically retries the legacy host (`api-origin`) if needed.
 
 ## Documentation
 
@@ -73,7 +74,7 @@ By default, the country is auto-detected from the user's IP address.
 | `userId` | `string` | No | Anonymous | Your external user ID |
 | `container` | `string \| HTMLElement` | No | `"#paylio-plans"` | Container for the pricing grid |
 | `country` | `string` | No | Auto-detected | ISO 3166-1 alpha-2 country code |
-| `scriptUrl` | `string` | No | `"https://api-origin.paylio.pro/embed/v1/js"` | Override hosted runtime URL |
+| `scriptUrl` | `string` | No | `"https://api.paylio.pro/embed/v1/js"` | Override hosted runtime URL |
 
 ### Anonymous mode
 

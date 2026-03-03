@@ -54,8 +54,8 @@ describe("createPaylioEmbed", () => {
         userId: "user_42",
         country: "IN",
         container: expect.any(HTMLElement),
-        apiBaseUrl: "https://api-origin.paylio.pro",
-        scriptSrc: "https://api-origin.paylio.pro/embed/v1/js",
+        apiBaseUrl: "https://api.paylio.pro",
+        scriptSrc: "https://api.paylio.pro/embed/v1/js",
       }),
     );
 
@@ -97,17 +97,57 @@ describe("createPaylioEmbed", () => {
       return appended;
     });
 
-    createPaylioEmbed({ publishableKey: "pk_test", scriptUrl: "https://api-origin.paylio.pro/embed/v1/js" });
+    createPaylioEmbed({ publishableKey: "pk_test", scriptUrl: "https://api.paylio.pro/embed/v1/js" });
 
     await flushAsync();
     await flushAsync();
 
     const insertedScript = document.querySelector(
-      'script[src="https://api-origin.paylio.pro/embed/v1/js"]',
+      'script[src="https://api.paylio.pro/embed/v1/js"]',
     ) as HTMLScriptElement | null;
 
     expect(insertedScript).toBeTruthy();
     expect(runtimeInit).toHaveBeenCalledTimes(1);
+    expect(runtimeInit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        apiBaseUrl: "https://api.paylio.pro",
+        scriptSrc: "https://api.paylio.pro/embed/v1/js",
+      }),
+    );
+  });
+
+  it("falls back to api-origin runtime when canonical api runtime fails to load", async () => {
+    const runtimeInit = vi.fn(() => ({ destroy: vi.fn() }));
+    const originalAppend = document.head.appendChild.bind(document.head);
+    const appendSpy = vi.spyOn(document.head, "appendChild");
+
+    appendSpy.mockImplementation((node) => {
+      const appended = originalAppend(node);
+      if (node instanceof HTMLScriptElement) {
+        setTimeout(() => {
+          if (node.src === "https://api.paylio.pro/embed/v1/js") {
+            node.onerror?.(new Event("error"));
+            return;
+          }
+
+          (window as unknown as { PaylioEmbed: { init: RuntimeInit } }).PaylioEmbed = {
+            init: runtimeInit,
+          };
+          node.onload?.(new Event("load"));
+        }, 0);
+      }
+
+      return appended;
+    });
+
+    createPaylioEmbed({ publishableKey: "pk_test" });
+    await flushAsync();
+    await flushAsync();
+    await flushAsync();
+    await flushAsync();
+
+    expect(document.querySelector('script[src="https://api.paylio.pro/embed/v1/js"]')).toBeTruthy();
+    expect(document.querySelector('script[src="https://api-origin.paylio.pro/embed/v1/js"]')).toBeTruthy();
     expect(runtimeInit).toHaveBeenCalledWith(
       expect.objectContaining({
         apiBaseUrl: "https://api-origin.paylio.pro",
@@ -144,7 +184,7 @@ describe("createPaylioEmbed", () => {
     await flushAsync();
 
     const scripts = Array.from(
-      document.querySelectorAll('script[src="https://api-origin.paylio.pro/embed/v1/js"]'),
+      document.querySelectorAll('script[src="https://api.paylio.pro/embed/v1/js"]'),
     ) as HTMLScriptElement[];
 
     expect(scripts.length).toBe(1);

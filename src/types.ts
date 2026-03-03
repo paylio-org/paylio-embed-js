@@ -23,7 +23,7 @@ export interface PaylioEmbedOptions {
 
   /**
    * Override hosted runtime script URL.
-   * @default "https://api-origin.paylio.pro/embed/v1/js"
+   * @default "https://api.paylio.pro/embed/v1/js"
    */
   scriptUrl?: string;
 }
