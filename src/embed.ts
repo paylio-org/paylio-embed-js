@@ -78,10 +78,14 @@ function deriveApiBaseUrl(scriptUrl: string): string {
   }
 }
 
-function getScriptUrlCandidates(scriptUrl: string, providedScriptUrl: string | undefined): string[] {
+function getScriptUrlCandidates(
+  scriptUrl: string,
+  providedScriptUrl: string | undefined,
+): string[] {
   const candidates = [scriptUrl];
   const hasProvidedScriptUrl = Boolean(providedScriptUrl?.trim());
-  const shouldIncludeLegacyFallback = !hasProvidedScriptUrl || scriptUrl === DEFAULT_RUNTIME_SCRIPT_URL;
+  const shouldIncludeLegacyFallback =
+    !hasProvidedScriptUrl || scriptUrl === DEFAULT_RUNTIME_SCRIPT_URL;
 
   if (shouldIncludeLegacyFallback && !candidates.includes(LEGACY_RUNTIME_FALLBACK_SCRIPT_URL)) {
     candidates.push(LEGACY_RUNTIME_FALLBACK_SCRIPT_URL);
@@ -101,9 +105,35 @@ function getRuntime(): PaylioRuntime | null {
 function findExistingScript(scriptUrl: string): HTMLScriptElement | null {
   const scripts = Array.from(document.getElementsByTagName("script"));
   return (
-    scripts.find((script): script is HTMLScriptElement => script instanceof HTMLScriptElement && script.src === scriptUrl) ??
-    null
+    scripts.find(
+      (script): script is HTMLScriptElement =>
+        script instanceof HTMLScriptElement && script.src === scriptUrl,
+    ) ?? null
   );
+}
+
+function findAnyRuntimeScript(): HTMLScriptElement | null {
+  const scripts = Array.from(document.getElementsByTagName("script"));
+  return (
+    scripts.find(
+      (script): script is HTMLScriptElement =>
+        script instanceof HTMLScriptElement && script.src.includes("/embed/v1/js"),
+    ) ?? null
+  );
+}
+
+function resolveRuntimeScriptUrl(requestedScriptUrl: string): string {
+  const exactScript = findExistingScript(requestedScriptUrl);
+  if (exactScript?.src) {
+    return exactScript.src;
+  }
+
+  const runtimeScript = findAnyRuntimeScript();
+  if (runtimeScript?.src) {
+    return runtimeScript.src;
+  }
+
+  return requestedScriptUrl;
 }
 
 function markScriptLoaded(script: HTMLScriptElement): void {
@@ -120,12 +150,13 @@ function loadHostedRuntime(
 ): Promise<RuntimeLoadResult> {
   const existingRuntime = getRuntime();
   if (existingRuntime) {
-    const existingScript = findExistingScript(scriptUrl);
+    const resolvedScriptUrl = resolveRuntimeScriptUrl(scriptUrl);
+    const existingScript = findExistingScript(resolvedScriptUrl) ?? findAnyRuntimeScript();
     return Promise.resolve({
       runtime: existingRuntime,
       script: existingScript,
       created: false,
-      resolvedScriptUrl: scriptUrl,
+      resolvedScriptUrl,
     });
   }
 
@@ -136,40 +167,40 @@ function loadHostedRuntime(
 
   const loadPromise = new Promise<RuntimeLoadResult>((resolve, reject) => {
     const existingScript = findExistingScript(scriptUrl);
-      if (existingScript) {
-        if (getRuntime()) {
+    if (existingScript) {
+      if (getRuntime()) {
+        resolve({
+          runtime: getRuntime(),
+          script: existingScript,
+          created: false,
+          resolvedScriptUrl: scriptUrl,
+        });
+        return;
+      }
+
+      if (isScriptLoaded(existingScript)) {
+        resolve({
+          runtime: null,
+          script: existingScript,
+          created: false,
+          resolvedScriptUrl: scriptUrl,
+        });
+        return;
+      }
+
+      existingScript.addEventListener(
+        "load",
+        () => {
+          markScriptLoaded(existingScript);
           resolve({
             runtime: getRuntime(),
             script: existingScript,
             created: false,
             resolvedScriptUrl: scriptUrl,
           });
-          return;
-        }
-
-        if (isScriptLoaded(existingScript)) {
-          resolve({
-            runtime: null,
-            script: existingScript,
-            created: false,
-            resolvedScriptUrl: scriptUrl,
-          });
-          return;
-        }
-
-      existingScript.addEventListener(
-          "load",
-          () => {
-            markScriptLoaded(existingScript);
-            resolve({
-              runtime: getRuntime(),
-              script: existingScript,
-              created: false,
-              resolvedScriptUrl: scriptUrl,
-            });
-          },
-          { once: true },
-        );
+        },
+        { once: true },
+      );
       existingScript.addEventListener(
         "error",
         () => reject(new Error(`[Paylio] Failed to load hosted runtime from ${scriptUrl}`)),
@@ -222,7 +253,8 @@ async function loadHostedRuntimeWithFallback(
     }
   }
 
-  throw lastError ?? new Error("[Paylio] Failed to load hosted runtime");
+  // scriptUrls always contains at least one candidate from normalizeScriptUrl().
+  throw lastError;
 }
 
 function createLegacyCleanupHandle(containerEl: HTMLElement): PaylioRuntimeHandle {
