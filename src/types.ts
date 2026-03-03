@@ -20,6 +20,12 @@ export interface PaylioEmbedOptions {
    * Auto-detected from IP if not provided.
    */
   country?: string;
+
+  /**
+   * Override hosted runtime script URL.
+   * @default "https://api-origin.paylio.pro/embed/v1/js"
+   */
+  scriptUrl?: string;
 }
 
 /**
